@@ -2,6 +2,8 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from typing import Dict, List, Optional
+from urllib.parse import urlparse, unquote
+import socket
 
 
 class Database:
@@ -21,7 +23,7 @@ class Database:
                     "psycopg non installato. Aggiungi 'psycopg[binary]' a requirements.txt."
                 ) from exc
 
-            conn = psycopg.connect(self.database_url)
+            conn = psycopg.connect(self._postgres_conninfo())
             try:
                 yield conn
             finally:
@@ -37,6 +39,36 @@ class Database:
         if self.use_postgres:
             return conn.cursor()
         return conn.cursor()
+
+    def _postgres_conninfo(self) -> str:
+        parsed = urlparse(self.database_url)
+        host = parsed.hostname or ""
+        port = parsed.port or 5432
+        dbname = parsed.path.lstrip("/")
+        user = unquote(parsed.username or "")
+        password = unquote(parsed.password or "")
+
+        # Render sembra fallire quando il resolver sceglie un indirizzo IPv6
+        # non raggiungibile. Forziamo un IPv4 se disponibile.
+        hostaddr = None
+        try:
+            infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+            if infos:
+                hostaddr = infos[0][4][0]
+        except socket.gaierror:
+            hostaddr = None
+
+        parts = [
+            f"host={host}",
+            f"port={port}",
+            f"dbname={dbname}",
+            f"user={user}",
+            f"password={password}",
+            "sslmode=require",
+        ]
+        if hostaddr:
+            parts.append(f"hostaddr={hostaddr}")
+        return " ".join(parts)
 
     def init_db(self):
         """Inizializza il database creando le tabelle necessarie."""
