@@ -43,10 +43,23 @@ class Database:
     def _postgres_conninfo(self) -> str:
         parsed = urlparse(self.database_url)
         host = parsed.hostname or ""
-        port = parsed.port or 5432
+        try:
+            port = parsed.port or 5432
+        except ValueError as exc:
+            raise ValueError(
+                "DATABASE_URL non valida: sembra mancare l'host o la porta. "
+                "Incolla la connection string completa di Supabase/Render, ad esempio "
+                "'postgresql://user:password@host:5432/dbname'."
+            ) from exc
         dbname = parsed.path.lstrip("/")
         user = unquote(parsed.username or "")
         password = unquote(parsed.password or "")
+
+        if not host or not dbname or not user:
+            raise ValueError(
+                "DATABASE_URL non valida: servono user, host e nome database. "
+                "Controlla di aver copiato la connection string completa, non solo la password."
+            )
 
         # Render sembra fallire quando il resolver sceglie un indirizzo IPv6
         # non raggiungibile. Forziamo un IPv4 se disponibile.
