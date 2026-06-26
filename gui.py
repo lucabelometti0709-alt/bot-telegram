@@ -109,7 +109,7 @@ class TaskManagerGUI:
         ttk.Button(action_frame, text="✅ Completa", command=self.complete_task).grid(row=0, column=0, padx=5)
         ttk.Button(action_frame, text="🗑️ Elimina", command=self.delete_task).grid(row=0, column=1, padx=5)
         ttk.Button(action_frame, text="🔄 Aggiorna pagina", command=self.refresh_tasks).grid(row=0, column=2, padx=5)
-
+        # Frame per le azioni
         
         # Status bar
         self.status_var = tk.StringVar()
