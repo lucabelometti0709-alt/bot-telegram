@@ -1,14 +1,7 @@
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Dict, List, Optional
-
-
-def _normalize_database_url(database_url: str) -> str:
-    if database_url.startswith("postgres://"):
-        return "postgresql://" + database_url[len("postgres://"):]
-    return database_url
 
 
 class Database:
@@ -16,24 +9,7 @@ class Database:
         self.database_url = os.getenv("DATABASE_URL")
         self.db_path = db_path
         self.use_postgres = bool(self.database_url)
-        self._postgres_conn_kwargs = None
-        if self.use_postgres:
-            self.database_url = _normalize_database_url(self.database_url)
-            self._postgres_conn_kwargs = self._parse_postgres_url(self.database_url)
         self.init_db()
-
-    def _parse_postgres_url(self, database_url: str) -> Dict[str, str]:
-        from urllib.parse import urlparse, unquote
-
-        parsed = urlparse(database_url)
-        return {
-            "host": parsed.hostname or "",
-            "port": str(parsed.port or 5432),
-            "dbname": parsed.path.lstrip("/"),
-            "user": unquote(parsed.username or ""),
-            "password": unquote(parsed.password or ""),
-            "sslmode": "require",
-        }
 
     @contextmanager
     def _connect(self):
@@ -45,7 +21,7 @@ class Database:
                     "psycopg non installato. Aggiungi 'psycopg[binary]' a requirements.txt."
                 ) from exc
 
-            conn = psycopg.connect(**self._postgres_conn_kwargs)
+            conn = psycopg.connect(self.database_url)
             try:
                 yield conn
             finally:
