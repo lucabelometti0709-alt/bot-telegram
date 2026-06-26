@@ -120,78 +120,86 @@ reminder_time = task_datetime - timedelta(minutes=5)
 ```
 con il numero di minuti desiderato.
 
-## 🌐 Deploy su Render
+## 🌐 Deploy gratis consigliato
 
-Per tenere il bot online 24/7, puoi usare Render (piano gratuito disponibile). Ecco i passaggi:
+Il modo più semplice per tenerlo online gratis è:
 
-### 1. Prepara il repository
+1. **Supabase free** per salvare gli impegni
+2. **Render free** come Web Service
+3. **UptimeRobot free** per pingare l'endpoint `/health`
 
-Assicurati di avere i file seguenti nel tuo repository:
-- `Procfile` (già creato)
-- `render.yaml` (già creato)
-- `.gitignore` (già creato)
-- `requirements.txt`
-- Tutti i file Python (`bot.py`, `database.py`, `scheduler.py`)
+### Perché così
 
-### 2. Crea un repository su GitHub
+- Il database non si perde se Render si riavvia
+- Il bot resta raggiungibile tramite HTTP
+- Il ping ogni 5 minuti evita lo sleep del servizio
 
-1. Vai su [GitHub](https://github.com) e crea un nuovo repository
-2. Carica i file del progetto:
+### Passi rapidi
+
+#### 1. Crea il database su Supabase
+
+1. Vai su [supabase.com](https://supabase.com)
+2. Crea un progetto nuovo
+3. Apri **Project Settings** -> **Database**
+4. Copia la stringa di connessione PostgreSQL
+5. Tienila da parte come `DATABASE_URL`
+
+#### 2. Prepara il file `.env`
+
+Crea un file `.env` partendo da `.env.example` e inserisci:
+
+```env
+TELEGRAM_BOT_TOKEN=il_tuo_token
+TELEGRAM_CHAT_ID=il_tuo_chat_id
+DATABASE_URL=postgresql://...
+```
+
+Se stai lavorando in locale puoi anche lasciare `DATABASE_URL` vuoto e il bot userà `tasks.db`.
+
+#### 3. Carica tutto su GitHub
+
 ```bash
 git init
 git add .
-git commit -m "Initial commit"
+git commit -m "Prepare bot for Render and Supabase"
 git branch -M main
 git remote add origin https://github.com/TUO_USERNAME/TUO_REPO.git
 git push -u origin main
 ```
 
-### 3. Crea un account su Render
+#### 4. Crea il Web Service su Render
 
 1. Vai su [render.com](https://render.com)
-2. Registrati con il tuo account GitHub
-3. Autorizza Render ad accedere ai tuoi repository
+2. Collega GitHub
+3. Crea un **Web Service**
+4. Scegli il tuo repository
+5. Lascia che Render usi:
+   - `buildCommand: pip install -r requirements.txt`
+   - `startCommand: python bot.py`
+6. Imposta le variabili d'ambiente:
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `DATABASE_URL`
 
-### 4. Crea il Web Service su Render
+#### 5. Crea il ping gratuito
 
-1. Clicca su **"New +"** → **"Web Service"**
-2. Seleziona il tuo repository GitHub
-3. Render rileverà automaticamente il file `render.yaml`
-4. Configura le variabili d'ambiente:
-   - `TELEGRAM_BOT_TOKEN`: Il tuo token da @BotFather
-   - `TELEGRAM_CHAT_ID`: Il tuo Chat ID
-5. Clicca su **"Create Web Service"**
+1. Vai su [uptimerobot.com](https://uptimerobot.com)
+2. Crea un monitor **HTTP**
+3. Inserisci l'URL del tuo servizio Render con `/health`
+4. Imposta il controllo ogni 5 minuti
 
-### 5. Verifica il deploy
+#### 6. Verifica
 
-1. Render inizierà automaticamente il deploy
-2. Puoi monitorare i log nella sezione **"Logs"**
-3. Una volta completato, il bot sarà online 24/7
+- In Render guarda i log
+- Apri `https://tuo-servizio.onrender.com/health`
+- In Telegram prova `/start`
+- Aggiungi un task con `/aggiungi descrizione | 2026-06-26 | 14:30`
 
-### 6. Cron Job per mantenere attivo il bot
+### Importante
 
-Render ha un piano gratuito che mette in sleep i servizi dopo 15 minuti di inattività. Per evitare questo:
-
-**Opzione A: Usa un servizio di ping esterno**
-- Usa [uptimerobot.com](https://uptimerobot.com) (gratuito)
-- Crea un monitor che pinga il tuo endpoint ogni 5 minuti
-- Nota: Render Worker non ha endpoint HTTP, quindi questa opzione potrebbe non funzionare
-
-**Opzione B: Usa Render Cron Jobs**
-1. Crea un nuovo **Cron Job** su Render
-2. Collegalo allo stesso repository
-3. Imposta il comando: `python -c "import requests; requests.get('https://TUO_BOT_URL')"`
-4. Imposta la frequenza: ogni 5-10 minuti
-
-**Opzione C: Upgrade al piano Starter ($7/mese)**
-- Il piano Starter evita il sleep mode
-- Ideale per bot che devono essere sempre attivi
-
-### 7. Monitoraggio
-
-- Controlla i log regolarmente su Render
-- Il bot si riavvierà automaticamente in caso di crash
-- Puoi vedere le metriche di utilizzo nella dashboard
+- Render Free può comunque riavviare il servizio in alcuni casi
+- Supabase tiene gli impegni al sicuro anche se il bot riparte
+- Il file `tasks.db` serve solo come fallback locale
 
 ## 🛠️ Troubleshooting
 
