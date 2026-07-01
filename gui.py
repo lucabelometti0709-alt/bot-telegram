@@ -1,12 +1,36 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from pytz import timezone
+import os
+from dotenv import load_dotenv
 from database import Database
+
+load_dotenv()
+
+# Carica il fuso orario configurato
+TIMEZONE_STR = os.getenv('TIMEZONE', 'Europe/Rome')
+try:
+    USER_TIMEZONE = timezone(TIMEZONE_STR)
+except Exception as e:
+    print(f"Fuso orario non valido: {TIMEZONE_STR}, uso il sistema. Errore: {e}")
+    USER_TIMEZONE = timezone('UTC')
+
+
+def get_now():
+    """Ritorna l'ora corrente nel fuso orario dell'utente"""
+    return datetime.now(USER_TIMEZONE)
+
+
+def get_today():
+    """Ritorna la data odierna nel fuso orario dell'utente (formato YYYY-MM-DD)"""
+    return get_now().strftime('%Y-%m-%d')
+
 
 class TaskManagerGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Gestione Attività Bot Telegram")
+        self.root.title(f"Gestione Attività Bot Telegram - Fuso: {TIMEZONE_STR}")
         self.root.geometry("800x600")
         
         self.db = Database()
@@ -32,10 +56,19 @@ class TaskManagerGUI:
         # Titolo
         title_label = ttk.Label(
             main_frame, 
-            text="📋 Gestione Attività", 
-            font=('Arial', 16, 'bold')
+            text=f"📋 Gestione Attività - Fuso: {TIMEZONE_STR}", 
+            font=('Arial', 14, 'bold')
         )
-        title_label.grid(row=0, column=0,columnspan=3, pady=(0, 20))
+        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        
+        # Ora corrente
+        current_time_label = ttk.Label(
+            main_frame,
+            text=f"Ora corrente: {get_now().strftime('%Y-%m-%d %H:%M:%S')}",
+            font=('Arial', 9)
+        )
+        current_time_label.grid(row=0, column=2, sticky=tk.E, pady=(0, 20))
+        self.current_time_label = current_time_label
         
         # Frame per l'inserimento
         input_frame = ttk.LabelFrame(main_frame, text="Aggiungi Nuova Attività", padding="10")
@@ -50,8 +83,8 @@ class TaskManagerGUI:
         ttk.Label(input_frame, text="Data (YYYY-MM-DD):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.date_entry = ttk.Entry(input_frame, width=20)
         self.date_entry.grid(row=1, column=1, sticky=tk.W, pady=5, padx=5)
-        # Imposta la data di oggi come default
-        self.date_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        # Imposta la data di oggi come default (nel fuso orario dell'utente)
+        self.date_entry.insert(0, get_today())
         
         # Ora
         ttk.Label(input_frame, text="Ora (HH:MM):").grid(row=2, column=0, sticky=tk.W, pady=5)
@@ -68,6 +101,7 @@ class TaskManagerGUI:
         
         ttk.Button(filter_frame, text="📋 Oggi", command=self.show_today).grid(row=0, column=0, padx=5)
         ttk.Button(filter_frame, text="📅 Tutte", command=self.show_all).grid(row=0, column=1, padx=5)
+        ttk.Button(filter_frame, text="🔄 Aggiorna ora", command=self.update_current_time).grid(row=0, column=2, padx=5)
         
         # Tabella delle attività
         table_frame = ttk.LabelFrame(main_frame, text="Attività", padding="10")
@@ -109,15 +143,19 @@ class TaskManagerGUI:
         ttk.Button(action_frame, text="✅ Completa", command=self.complete_task).grid(row=0, column=0, padx=5)
         ttk.Button(action_frame, text="🗑️ Elimina", command=self.delete_task).grid(row=0, column=1, padx=5)
         ttk.Button(action_frame, text="🔄 Aggiorna pagina", command=self.refresh_tasks).grid(row=0, column=2, padx=5)
-        # Frame per le azioni
         
         # Status bar
         self.status_var = tk.StringVar()
-        self.status_var.set("Pronto")
+        self.status_var.set(f"Pronto - Fuso orario: {TIMEZONE_STR}")
         status_bar = ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN)
         status_bar.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
         
         self.current_filter = 'all'
+    
+    def update_current_time(self):
+        """Aggiorna l'ora corrente visualizzata"""
+        current_time_str = f"Ora corrente: {get_now().strftime('%Y-%m-%d %H:%M:%S')}"
+        self.current_time_label.config(text=current_time_str)
     
     def add_task(self):
         """Aggiunge una nuova attività"""
@@ -157,7 +195,7 @@ class TaskManagerGUI:
         
         # Carica le attività in base al filtro
         if self.current_filter == 'today':
-            today = datetime.now().strftime('%Y-%m-%d')
+            today = get_today()
             tasks = self.db.get_tasks_by_date(today)
         else:
             tasks = self.db.get_all_tasks()
@@ -173,7 +211,8 @@ class TaskManagerGUI:
                 status
             ))
         
-        self.status_var.set(f"Caricate {len(tasks)} attività")
+        self.status_var.set(f"Caricate {len(tasks)} attività - Ora corrente ({TIMEZONE_STR}): {get_now().strftime('%H:%M:%S')}")
+        self.update_current_time()
     
     def show_today(self):
         """Mostra le attività di oggi"""
